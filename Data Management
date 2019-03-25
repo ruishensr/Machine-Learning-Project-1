@@ -50,7 +50,7 @@ miss_var<-merge (miss_var_list, var_type, by= "var_name")
 colnames(miss_var)[3] <- "var_type"
 
 #replace missing value for variables with very few missing values for training_all
-#decide not to use it, instead of using missing.imputation function
+#decide not to use this approach, instead of using missing.imputation function below
 #train_all_2<-train_all
 #train_all_2$AMT_ANNUITY[is.na(train_all$AMT_ANNUITY)]<- round(mean(train_all$AMT_ANNUITY, na.rm = TRUE))
 #train_all_2$CNT_FAM_MEMBERS[is.na(train_all$CNT_FAM_MEMBERS)]<- round(mean(train_all$CNT_FAM_MEMBERS, na.rm = TRUE))
