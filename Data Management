@@ -39,9 +39,9 @@ na_count <- data.frame(na_count  )
 miss_var_list<-subset(na_count, na_count!=0)
 miss_var_list <- cbind(rownames(miss_var_list), miss_var_list)
 rownames(miss_var_list) <- NULL
-#miss_var_name<- data.frame(colnames(application_train)[apply(is.na(application_train), 2, any)])
-#colnames(miss_var_name)[1] <- "var_name"
-#miss_var_final<- merge (miss_var_list, miss_var_name)
+miss_var_name<- data.frame(colnames(application_train)[apply(is.na(application_train), 2, any)])
+colnames(miss_var_name)[1] <- "var_name"
+miss_var_final<- merge (miss_var_list, miss_var_name)
 
 #merge var with missing value and type
 colnames(miss_var_list)[1] <- "var_name"
@@ -90,7 +90,11 @@ missing.imputation <- function(var) {
   return(var)
 }
 
-train_all_2 <- transform (train_all, apply(train_all,2,missing.imputation))
+train_all_2 <- data.frame(missing.imputation(train_all[,1]),stringsAsFactors = F)
+for (i in 2:ncol(train_all)) {
+  train_all_2 <- cbind(train_all_2,data.frame(missing.imputation(train_all[,i]),stringsAsFactors = F))
+}
+colnames(train_all_2) <- colnames(train_all)
 
 train_all_3 <- as.data.frame(train_all_2)
 #drop ID and target var
@@ -100,12 +104,40 @@ pdf("C:/Users/zhang/Desktop/MRM ML Workshop/Project 1/hist.pdf",width=9,height=9
 sapply(names(train_all_hist), function(cname){
   # (make sure we only plot the numeric columns)
   if (is.numeric(train_all_hist[[cname]]))
-    # use the `main` param to put column name as plot title
+    # use the `main` param to put column name as plot title, turn off the x-axis label
     print(hist(train_all_hist[[cname]], main=cname,xlab=""))
 })
 dev.off()
 
 #next step, examine the distributions of all numeric variables and identify potential outliers
 #propose possible winsorization/variable collapse/binning
+##Ignore all the 'FLAG_' variables, since they are binary even though they are numeric
+train_all_4 <- train_all_3
+numeric_var <- var_type[var_type[,2]=="numeric",]
+#Cap number of children
+train_all_4$CNT_CHILDREN[train_all_4$CNT_CHILDREN>4]<- 4
+table (train_all_3$CNT_CHILDREN)
+#cap AMT_INCOME_TOTAL
+quantile(train_all_4$AMT_INCOME_TOTAL, probs = c(0,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1))
+train_all_4$AMT_INCOME_TOTAL[train_all_4$AMT_INCOME_TOTAL>472500]<- quantile(train_all_4$AMT_INCOME_TOTAL,0.99)
+# 0%       10%       25%       50%       75%       90%       95%       99%      100% 
+# 25650     81000    112500    148500    202500    270000    337500    472500 117000000 
+# 0%    10%    25%    50%    75%    90%    95%    99%   100% 
+# 25650  81000 112500 148500 202500 270000 337500 472500 472500
 
+quantile(train_all_4$AMT_CREDIT, probs = c(0,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1))
+train_all_4$AMT_CREDIT[train_all_4$AMT_CREDIT>472500]<- quantile(train_all_4$AMT_CREDIT,0.99)
+# 0%       10%       25%       50%       75%       90%       95%       99%      100% 
+# 45000.0  180000.0  270000.0  514777.5  808650.0 1133748.0 1350000.0 1862802.0 4050000.0 
+# 0%     10%     25%     50%     75%     90%     95%     99%    100% 
+# 45000  180000  270000 1862802 1862802 1862802 1862802 1862802 1862802 
 
+quantile(train_all_4$AMT_ANNUITY, probs = c(0,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1))
+train_all_4$AMT_ANNUITY[train_all_4$AMT_ANNUITY>472500]<- quantile(train_all_4$AMT_ANNUITY,0.99)
+# 0%      10%      25%      50%      75%      90%      95%      99%     100% 
+# 1615.5  11047.5  16542.0  24925.5  34650.0  45954.0  53325.0  70006.5 258025.5 
+# 0%      10%      25%      50%      75%      90%      95%      99%     100% 
+# 1615.5  11047.5  16542.0  24925.5  34650.0  45954.0  53325.0  70006.5 258025.5 
+
+#Check a couple of numeric variable in $ amount, it seems like 99% is a reasonable cap treatment
+#Keep exploring others and discuss
