@@ -1,0 +1,116 @@
+nrow(application_train)
+ncol(application_train)
+
+## 20% of the overall sample size for test data
+test_size <- floor(0.2 * nrow(application_train))
+test_size
+
+## set the seed to make your partition reproducible
+set.seed(12345)
+test_ind <- sample(seq_len(nrow(application_train)), size = test_size)
+
+train_all <- application_train[-test_ind, ]
+test <- application_train[test_ind, ]
+
+## 20% of the train_all sample size for validation data
+val_size <- floor(0.2 * nrow(train_all))
+val_size
+
+## set the seed to make your partition reproducible
+set.seed(67890)
+val_ind <- sample(seq_len(nrow(train_all)), size = val_size)
+
+train <- train_all[-val_ind, ]
+val <- train_all[val_ind, ]
+
+#double check the number of obs
+nrow(test)+nrow(train)+nrow(val)
+
+#check variable type
+var_type<-data.frame(sapply(application_train, class))
+var_type <- cbind(rownames(var_type), var_type)
+rownames(var_type) <- NULL
+
+#check missing value
+na_count <-sapply(application_train, function(y) sum(length(which(is.na(y)))))
+na_count <- data.frame(na_count  )
+
+#extract variable with missing value
+miss_var_list<-subset(na_count, na_count!=0)
+miss_var_list <- cbind(rownames(miss_var_list), miss_var_list)
+rownames(miss_var_list) <- NULL
+#miss_var_name<- data.frame(colnames(application_train)[apply(is.na(application_train), 2, any)])
+#colnames(miss_var_name)[1] <- "var_name"
+#miss_var_final<- merge (miss_var_list, miss_var_name)
+
+#merge var with missing value and type
+colnames(miss_var_list)[1] <- "var_name"
+colnames(var_type)[1] <- "var_name"
+miss_var<-merge (miss_var_list, var_type, by= "var_name")
+colnames(miss_var)[3] <- "var_type"
+
+#replace missing value for variables with very few missing values for training_all
+#decide not to use it, instead of using missing.imputation function
+#train_all_2<-train_all
+#train_all_2$AMT_ANNUITY[is.na(train_all$AMT_ANNUITY)]<- round(mean(train_all$AMT_ANNUITY, na.rm = TRUE))
+#train_all_2$CNT_FAM_MEMBERS[is.na(train_all$CNT_FAM_MEMBERS)]<- round(mean(train_all$CNT_FAM_MEMBERS, na.rm = TRUE))
+#train_all_2$DAYS_LAST_PHONE_CHANGE[is.na(train_all$DAYS_LAST_PHONE_CHANGE)]<- round(mean(train_all$DAYS_LAST_PHONE_CHANGE, na.rm = TRUE))
+
+#replace missing value of cagetorical variable with Unknow
+cat_miss_var<-miss_var[which(miss_var$var_type=='character'),]
+
+#table (train_all_2$EMERGENCYSTATE_MODE)
+#table (train_all_2$FONDKAPREMONT_MODE)
+#table (train_all_2$HOUSETYPE_MODE)
+#table (train_all_2$NAME_TYPE_SUITE)
+#table (train_all_2$OCCUPATION_TYPE)
+#table (train_all_2$WALLSMATERIAL_MODE)
+
+#train_all_2$EMERGENCYSTATE_MODE[is.na(train_all$EMERGENCYSTATE_MODE)]<- 'Unknown'
+#train_all_2$FONDKAPREMONT_MODE[is.na(train_all$FONDKAPREMONT_MODE)]<- 'Unknown'
+#train_all_2$HOUSETYPE_MODE[is.na(train_all$HOUSETYPE_MODE)]<- 'Unknown'
+#train_all_2$NAME_TYPE_SUITE[is.na(train_all$NAME_TYPE_SUITE)]<- 'Unknown'
+#train_all_2$OCCUPATION_TYPE[is.na(train_all$OCCUPATION_TYPE)]<- 'Unknown'
+#train_all_2$WALLSMATERIAL_MODE[is.na(train_all$WALLSMATERIAL_MODE)]<- 'Unknown'
+
+#missing data imputation function
+missing.imputation <- function(var) {
+  if (class(var)=="character") {
+    var[is.na(var)] <- "Unknown"
+  } else {
+    var_new <- var
+    var_new[!is.na(var_new)] <- var_new[!is.na(var_new)]- mean(var,na.rm=T)
+    pval <- wilcox.test(na.omit(var_new),alternative="two.sided")$p.value
+    if (pval<0.05) {
+      var[is.na(var)] <- median(var,na.rm=T)
+    } else {
+      var[is.na(var)] <- mean(var,na.rm=T)
+    }
+  }
+  return(var)
+}
+
+train_all_2 <- transform (train_all, apply(train_all,2,missing.imputation))
+
+nrow(train_all_2)
+ncol(train_all_2)
+nrow(train_all)
+ncol(train_all)
+
+var_type<-data.frame(sapply(train_all_2, class))
+var_type <- cbind(rownames(var_type), var_type)
+
+
+#Examine the distributions of all numeric variables and identify potential outliers
+#Consider possible variable collapse/binning
+#Somehow, this does not generate plots. Need to find out the reason
+plot.hist<- function(var) {
+  if (class(var)=="numeric") {
+    hist(var)
+  }
+}
+apply(train_all_2,2,plot.hist)
+
+hist(train_all_2$YEARS_BEGINEXPLUATATION_AVG)
+
+
