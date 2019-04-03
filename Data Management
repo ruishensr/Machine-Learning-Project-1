@@ -141,3 +141,5 @@ train_all_4$AMT_ANNUITY[train_all_4$AMT_ANNUITY>472500]<- quantile(train_all_4$A
 
 #Check a couple of numeric variable in $ amount, it seems like 99% is a reasonable cap treatment
 #Keep exploring others and discuss
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
