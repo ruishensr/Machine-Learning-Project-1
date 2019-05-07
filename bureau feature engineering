@@ -1,0 +1,103 @@
+library (plyr)
+library(data.table)
+library(dplyr)
+library(dplyr)
+
+attach(bureau)
+
+var_type<-data.frame(sapply(, class))
+
+# create frequency variables
+bureau_created<-data.frame(table(SK_ID_CURR))
+bureau_1<-data.frame(table(SK_ID_CURR[bureau$CREDIT_ACTIVE=='Active']))
+colnames(bureau_1)[colnames(bureau_1)=="Freq"] <- "Freq_active"
+colnames(bureau_1)[colnames(bureau_1)=="Var1"] <- "SK_ID_CURR"
+bureau_created <- merge(bureau_created,bureau_1,by="SK_ID_CURR", all = TRUE)
+bureau_created[is.na(bureau_created)] <- 0
+bureau_created$Freq_closed<- bureau_created$Freq - bureau_created$Freq_active
+
+table(bureau$CREDIT_CURRENCY)
+# currency 1 currency 2 currency 3 currency 4 
+# 1715020       1224        174         10 
+
+ids <- unique(bureau$SK_ID_CURR)
+categories <- unique(bureau$CREDIT_CURRENCY)
+counts <- matrix(nrow=length(ids), ncol=length(categories))
+rownames(counts) <- ids
+colnames(counts) <- categories
+
+for (i in seq_along(ids)) {
+  for (j in seq_along(categories)) {
+    count <- bureau %>%
+      filter(SK_ID_CURR == ids[i], CREDIT_CURRENCY == categories[j]) %>%
+      nrow()
+    
+    counts[i, j] <- count
+  }
+}
+CREDIT_CURRENCY<-data.frame(counts)
+CREDIT_CURRENCY$SK_ID_CURR <- rownames(CREDIT_CURRENCY)
+
+bureau_created <- merge(bureau_created,CREDIT_CURRENCY,by="SK_ID_CURR", all = TRUE)
+
+# number of days of previous credits
+quantile(bureau$DAYS_CREDIT, probs = c(0,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1))
+# bureau %>% 
+#   group_by(SK_ID_CURR) %>% 
+#   summarise(DAYS_CREDIT_total = sum(DAYS_CREDIT))
+DAYS_CREDIT<-data.frame(aggregate(bureau$DAYS_CREDIT, by=list(SK_ID_CURR=bureau$SK_ID_CURR), FUN=sum))
+bureau_created <- merge(bureau_created,DAYS_CREDIT,by="SK_ID_CURR", all = TRUE)
+colnames(bureau_created)[colnames(bureau_created)=="x"] <- "DAYS_CREDIT_total"
+# hist(bureau_created$DAYS_CREDIT_total)
+
+# past due variables
+quantile(bureau$CREDIT_DAY_OVERDUE, probs = c(0,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1))
+# 0%  10%  25%  50%  75%  90%  95%  99% 100% 
+# 0    0    0    0    0    0    0    0 2792 
+bureau$DPD<- 1-as.numeric(bureau$CREDIT_DAY_OVERDUE == 0)
+DPD_count<-data.frame(table(bureau$DPD))
+myFreqs <- bureau %>%   
+group_by(SK_ID_CURR) %>%   
+summarise(DPD_freq = sum(DPD)) 
+myFreqs 
+# table(myFreqs$DPD)
+# 0      1      2      3      4      5      6      7 
+# 301947   3615    186     39     13      6      4      1 
+bureau_created <- merge(bureau_created,myFreqs,by="SK_ID_CURR", all = TRUE)
+# bureau_created<-select (bureau_created,-c(DPD))
+DPD_days <- bureau %>%   
+  group_by(SK_ID_CURR) %>%   
+  summarise(DPD_total_days = sum(CREDIT_DAY_OVERDUE)) 
+DPD_days 
+# quantile(DPD_days$DPD_total_days, probs = c(0,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1))
+# 0%  10%  25%  50%  75%  90%  95%  99% 100% 
+# 0    0    0    0    0    0    0   15 5250 
+bureau_created <- merge(bureau_created,DPD_days,by="SK_ID_CURR", all = TRUE)
+
+# DAYS_CREDIT_ENDDATE
+quantile(bureau$DAYS_CREDIT_ENDDATE, probs = c(0,0.05,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1),na.rm="True")
+# 0%     5%    10%    25%    50%    75%    90%    95%    99%   100% 
+#   -42060  -2262  -1922  -1138   -330    474   1334   2623  31029  31199 
+bureau$CREDIT_END<- as.numeric(bureau$DAYS_CREDIT_ENDDATE >= 0)
+temp <- bureau %>%   
+  group_by(SK_ID_CURR) %>%   
+  summarise(CREDIT_END = sum(CREDIT_END,na.rm = TRUE)) 
+temp 
+bureau_created <- merge(bureau_created,temp,by="SK_ID_CURR", all = TRUE)
+
+# DAYS_ENDDATE_FACT
+quantile(bureau$DAYS_ENDDATE_FACT, probs = c(0,0.05,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1),na.rm="True")
+# 0%     5%    10%    25%    50%    75%    90%    95%    99%   100% 
+#   -42023  -2393  -2159  -1489   -897   -425   -178    -94    -24      0 
+# This variables seems duplicating the information in DAYS_CREDIT_ENDDATE
+
+# AMT_CREDIT_MAX_OVERDUE
+quantile(bureau$AMT_CREDIT_MAX_OVERDUE, probs = c(0,0.05,0.10, 0.25, 0.5, 0.75, 0.90,0.95, 0.99,1),na.rm="True")
+# 0%           5%          10%          25%          50%          75%          90% 
+# 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 7.594875e+03 
+# 95%          99%         100% 
+# 1.422045e+04 4.198875e+04 1.159872e+08 
+temp1 <- bureau %>%   
+  group_by(SK_ID_CURR) %>%   
+  summarise(AMT_CREDIT_MAX_OVERDUE = sum(AMT_CREDIT_MAX_OVERDUE,na.rm = TRUE)) 
+temp1 
